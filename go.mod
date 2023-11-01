@@ -1,4 +1,4 @@
-module github.com/hashicorp/terraform-provider-scaffolding-framework
+module terraform-provider-jetbrains-space
 
 go 1.19
 
@@ -8,6 +8,7 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.18.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-testing v1.3.0
+	github.com/skydivervrn/space-api-client v0.0.1
 )
 
 require (
@@ -55,6 +56,7 @@ require (
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/posener/complete v1.2.3 // indirect
 	github.com/russross/blackfriday v1.6.0 // indirect
+	github.com/sean-mcgimpsey/jetbrains-space-api-client-go v0.0.0-20230725210840-a68982403e3d
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
