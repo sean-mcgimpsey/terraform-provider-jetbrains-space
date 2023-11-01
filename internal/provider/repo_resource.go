@@ -126,7 +126,6 @@ func (r *repoResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	// Create new order
 	repoName := plan.Name.ValueString()
 	projectId := plan.ProjectID.ValueString()
 	protected := plan.Protected.ValueBool()
@@ -141,7 +140,7 @@ func (r *repoResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating repo - "+plan.Name.String()+" ",
-			"Could not create repo, unexpected error: "+err.Error(),
+			err.Error(),
 		)
 		return
 	}
@@ -181,8 +180,8 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	repo, err := r.client.GetRepository(state.Name.ValueString(), state.ProjectID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Reading Jetbrains Space repo",
-			"Could not read repo name "+state.Name.ValueString()+": "+err.Error(),
+			"Error Reading Jetbrains Space repo"+state.Name.ValueString(),
+			err.Error(),
 		)
 		return
 	}
@@ -191,7 +190,7 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating protected branches - "+state.Name.ValueString()+" ",
-			"Could not create repos protected branches, unexpected error: "+err.Error(),
+			err.Error(),
 		)
 		return
 	}
@@ -278,7 +277,7 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error Updating Space repo; "+repo.ID+" is the value...",
-				"Could not update repo, unexpected error: "+err.Error(),
+				err.Error(),
 			)
 			return
 		}
@@ -295,8 +294,8 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		_, err := r.client.UpdateRepositoryDefaultBranch(projectid, name, value)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error Updating Space repo; "+repo.ID+" is the value...",
-				"Could not update repo, unexpected error: "+err.Error(),
+				"Error Updating Space repo;"+repo.ID,
+				err.Error(),
 			)
 			return
 		}
@@ -305,8 +304,8 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	err = r.client.DeleteRepositoryProtectedBranches(projectid, name)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Updating Space repo; "+repo.ID+" is the value...",
-			"Could not update repo, unexpected error: "+err.Error(),
+			"Error Deleting Space repo;"+repo.ID,
+			err.Error(),
 		)
 		return
 	}
@@ -322,8 +321,8 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	p, err := r.client.GetRepository(name, projectid)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Reading Space project",
-			"Could not read Space project ID "+projectid+": "+err.Error(),
+			"Error Reading Space project"+projectid,
+			err.Error(),
 		)
 		return
 	}
@@ -361,8 +360,8 @@ func (r *repoResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		err := r.client.DeleteRepository(state.ProjectID.ValueString(), state.Name.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error Deleting Space Repo",
-				"Could not delete repo, unexpected error: "+err.Error(),
+				"Error Deleting Space Repo"+state.Name.ValueString(),
+				err.Error(),
 			)
 			return
 		}
