@@ -7,19 +7,6 @@ import (
 	"net/http"
 )
 
-type CommitFile struct {
-	BaseCommit    string `json:"baseCommit"`
-	TargetBranch  string `json:"targetBranch"`
-	CommitMessage string `json:"commitMessage"`
-	Files         []struct {
-		Path    string `json:"path"`
-		Content struct {
-			ClassName string `json:"className"`
-			Values    string `json:"value"`
-		} `json:"content"`
-	} `json:"files"`
-}
-
 type ProtectedBranches struct {
 	ProtectedBranches []ProtectedBranchesReq `json:"protectedBranches"`
 }
@@ -55,7 +42,6 @@ type ProtectedBranchesResultApprovals struct {
 	MinApprovals int      `json:"minApprovals"`
 }
 
-// GetRepository - Returns Repository by id
 func (c *Client) GetRepository(repositoryName, projectId string) (Repository, error) {
 	projectRepos, err := c.getProjectRepos(projectId)
 	if err != nil {
@@ -69,7 +55,6 @@ func (c *Client) GetRepository(repositoryName, projectId string) (Repository, er
 	return Repository{}, fmt.Errorf("repository %s not found", repositoryName)
 }
 
-// CreateRepository - Creates Repository with given name
 func (c *Client) CreateRepository(repositoryName string, projectId string, data CreateRepositoryData) (Repository, error) {
 	bytesData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s", c.HostURL, baseApiEndpoint, projectId, repositoryName), bytes.NewBuffer(bytesData))
@@ -148,7 +133,6 @@ func (c *Client) UpdateRepositoryDefaultBranch(projectId, name string, branch st
 	return branch, nil
 }
 
-// DeleteRepository - Creates Repository with given name
 func (c *Client) DeleteRepository(projectId, repositoryName string) error {
 	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s%s/id:%s/repositories/%s", c.HostURL, baseApiEndpoint, projectId, repositoryName), nil)
 	if err != nil {

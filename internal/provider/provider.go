@@ -7,7 +7,6 @@ import (
 	space "terraform-provider-jetbrains-space/internal/api"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -28,22 +27,6 @@ func New(version string) func() provider.Provider {
 			version: version,
 		}
 	}
-}
-
-// jetbrainsSpaceProvider is the provider implementation.
-type jetbrainsSpaceProvider struct {
-	// version is set to the provider version on release, "dev" when the
-	// provider is built and ran locally, and "test" when running acceptance
-	// testing.
-	version string
-}
-
-type jetbrainsSpaceProviderModel struct {
-	// version is set to the provider version on release, "dev" when the
-	// provider is built and ran locally, and "test" when running acceptance
-	// testing.
-	Host  types.String `tfsdk:"host"`
-	Token types.String `tfsdk:"token"`
 }
 
 // Metadata returns the provider type name.

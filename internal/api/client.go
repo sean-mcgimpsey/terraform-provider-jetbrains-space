@@ -12,7 +12,6 @@ const (
 	baseApiEndpoint = "/api/http/projects"
 )
 
-// NewClient -
 func NewClient(host, token string) (*Client, error) {
 	c := Client{
 		HTTPClient: &http.Client{Timeout: 10 * time.Second},

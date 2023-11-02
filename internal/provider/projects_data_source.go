@@ -23,20 +23,8 @@ func projectsDataSource() datasource.DataSource {
 	return &ProjectDataSource{}
 }
 
-// ExampleDataSource defines the data source implementation.
 type ProjectDataSource struct {
 	client *space.Client
-}
-
-// ExampleDataSourceModel describes the data source data model.
-type ProjectDataSourceModel struct {
-	Projects []ProjectsModel `tfsdk:"projects"`
-}
-
-type ProjectsModel struct {
-	Key  types.String `tfsdk:"key"`
-	Id   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
 }
 
 func (d *ProjectDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {

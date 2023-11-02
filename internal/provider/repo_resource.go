@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	space "terraform-provider-jetbrains-space/internal/api"
@@ -13,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -20,8 +22,9 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource              = &repoResource{}
-	_ resource.ResourceWithConfigure = &repoResource{}
+	_ resource.Resource                = &repoResource{}
+	_ resource.ResourceWithConfigure   = &repoResource{}
+	_ resource.ResourceWithImportState = &repoResource{}
 )
 
 // NewrepoResource is a helper function to simplify the provider implementation.
@@ -32,31 +35,6 @@ func NewRepoResource() resource.Resource {
 // repoResource is the resource implementation.
 type repoResource struct {
 	client *space.Client
-}
-
-type repoResourceModel struct {
-	Name              types.String              `tfsdk:"name"`
-	ID                types.String              `tfsdk:"id"`
-	ProjectID         types.String              `tfsdk:"project_id"`
-	LastUpdated       types.String              `tfsdk:"last_updated"`
-	Description       types.String              `tfsdk:"description"`
-	DefaultBranch     types.String              `tfsdk:"default_branch"`
-	Protected         types.Bool                `tfsdk:"protected"`
-	ProtectedBranches []repoSettingsBranchModel `tfsdk:"protected_branches"`
-}
-
-type repoSettingsBranchModel struct {
-	Pattern     []types.String                     `tfsdk:"pattern"`
-	QualityGate repoSettingsBranchModelQualityGate `tfsdk:"quality_gate"`
-}
-
-type repoSettingsBranchModelQualityGate struct {
-	Approvals []repoSettingsBranchModelApprovals `tfsdk:"approvals"`
-}
-
-type repoSettingsBranchModelApprovals struct {
-	MinApprovals types.Int64    `tfsdk:"min_approvals"`
-	ApprovedBy   []types.String `tfsdk:"approved_by"`
 }
 
 func (r *repoResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -79,10 +57,14 @@ func (r *repoResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Required: true,
 			},
 			"default_branch": schema.StringAttribute{
-				Required: true,
+				Optional: true,
+				Computed: true,
+				Default:  stringdefault.StaticString("main"),
 			},
 			"description": schema.StringAttribute{
-				Required: true,
+				Optional: true,
+				Computed: true,
+				Default:  stringdefault.StaticString(""),
 			},
 			"protected": schema.BoolAttribute{
 				Optional: true,
@@ -369,8 +351,18 @@ func (r *repoResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 }
 
 func (r *repoResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Retrieve import ID and save to id attribute
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	idParts := strings.Split(req.ID, ",")
+
+	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Unexpected Import Identifier",
+			fmt.Sprintf("Expected import identifier with format: attr_one,attr_two. Got: %q", req.ID),
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), idParts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), idParts[1])...)
 }
 
 func (r *repoResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {

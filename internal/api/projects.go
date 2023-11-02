@@ -27,7 +27,6 @@ func (c *Client) GetProjects() (Projects, error) {
 
 }
 
-// GetProject - Returns project by id
 func (c *Client) GetProject(id string) (Project, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/http/projects/id:%s?$fields=id,archived,createdAt,description,icon,key,latestRepositoryActivity,name,private,memberTeams(name)", c.HostURL, id), nil)
 	if err != nil {
@@ -48,7 +47,6 @@ func (c *Client) GetProject(id string) (Project, error) {
 	return project, nil
 }
 
-// getProjectRepos
 func (c *Client) getProjectRepos(projectId string) (ProjectRepos, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s/id:%s?$fields=repos", c.HostURL, baseApiEndpoint, projectId), nil)
 	if err != nil {
@@ -69,7 +67,6 @@ func (c *Client) getProjectRepos(projectId string) (ProjectRepos, error) {
 	return project, nil
 }
 
-// CreateProject - Creates project with given name
 func (c *Client) CreateProject(name string) (Project, error) {
 	data := new(struct {
 		Key struct {
@@ -99,7 +96,6 @@ func (c *Client) CreateProject(name string) (Project, error) {
 	return project, nil
 }
 
-// UpdateProject - Creates project with given name
 func (c *Client) UpdateProject(id string, project Project) (Project, error) {
 	data := new(struct {
 		Name string `json:"name"`
@@ -125,7 +121,6 @@ func (c *Client) UpdateProject(id string, project Project) (Project, error) {
 	return updatedProject, nil
 }
 
-// DeleteProject - Creates project with given name
 func (c *Client) DeleteProject(id string) error {
 	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s%s/id:%s", c.HostURL, baseApiEndpoint, id), nil)
 	if err != nil {
@@ -141,7 +136,6 @@ func (c *Client) DeleteProject(id string) error {
 }
 
 func (c *Client) MapTeamToProjectRole(data ProjectRoles, projectID string) error {
-	// '{"team":"name:Maru","addRoles":["member"],"removeRoles":[]}
 
 	jsonData, err := json.Marshal(data)
 	jsonData = bytes.Replace(jsonData, []byte("\"\""), []byte(""), 1)
@@ -159,15 +153,12 @@ func (c *Client) MapTeamToProjectRole(data ProjectRoles, projectID string) error
 		return fmt.Errorf("Problem getting response from project roles (Updating) " + string(jsonData) + err.Error())
 
 	}
-	// API doesnt return validation. Run a get.
 
 	return nil
 
 }
 
 func (c *Client) GetTeamToProjectRole(projectID string) ([]ProjectTeams, error) {
-	// https://maru.jetbrains.space/api/http/projects/id:1n4L5715xcet?$fields=memberTeams(name)
-
 	projectSettings, err := c.GetProject(projectID)
 	if err != nil {
 		return []ProjectTeams{}, fmt.Errorf("Problem getting project settings" + projectID + " " + err.Error())

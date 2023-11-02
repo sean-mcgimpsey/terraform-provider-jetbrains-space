@@ -2,14 +2,12 @@ package jetbrains_space_api_client_go
 
 import "net/http"
 
-// Client -
 type Client struct {
 	HostURL    string
 	HTTPClient *http.Client
 	Token      string
 }
 
-// Project struct
 type Project struct {
 	ID  string `json:"id"`
 	Key struct {
@@ -32,7 +30,6 @@ type ProjectTeams struct {
 	Name string `json:"name"`
 }
 
-// ProjectRepos struct
 type ProjectRepos struct {
 	Repos []struct {
 		ID                        string      `json:"id"`
@@ -52,21 +49,12 @@ type ProjectRepos struct {
 	} `json:"repos"`
 }
 
-// '{"team":"name:Maru","addRoles":["member"],"removeRoles":[]}
-
 type ProjectRoles struct {
 	Team        string        `json:"team"`
 	AddRoles    []interface{} `json:"addRoles"`
 	RemoveRoles []interface{} `json:"removeRoles"`
 }
 
-type ProjectRolesTeam struct {
-	Name        string   `json:"name"`
-	AddRoles    []string `json:"addRoles"`
-	RemoveRoles []string `json:"removeRoles"`
-}
-
-// Repository struct
 type Repository struct {
 	ID                        string      `json:"id"`
 	Name                      string      `json:"name"`
@@ -84,7 +72,6 @@ type Repository struct {
 	} `json:"defaultBranch"`
 }
 
-// CreateRepositoryData struct
 type CreateRepositoryData struct {
 	Description   string `json:"description"`
 	DefaultBranch string `json:"defaultBranch"`

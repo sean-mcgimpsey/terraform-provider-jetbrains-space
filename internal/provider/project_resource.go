@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	space "terraform-provider-jetbrains-space/internal/api"
@@ -15,12 +16,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource              = &projectResource{}
-	_ resource.ResourceWithConfigure = &projectResource{}
+	_ resource.Resource                = &projectResource{}
+	_ resource.ResourceWithConfigure   = &projectResource{}
+	_ resource.ResourceWithImportState = &projectResource{}
 )
 
 // NewProjectResource is a helper function to simplify the provider implementation.
@@ -31,20 +34,6 @@ func NewProjectResource() resource.Resource {
 // ProjectResource is the resource implementation.
 type projectResource struct {
 	client *space.Client
-}
-
-type projectResourceModel struct {
-	Name        types.String   `tfsdk:"name"`
-	Key         types.String   `tfsdk:"key"`
-	ID          types.String   `tfsdk:"id"`
-	LastUpdated types.String   `tfsdk:"last_updated"`
-	Protected   types.Bool     `tfsdk:"protected"`
-	MemberTeams []types.String `tfsdk:"member_teams"`
-}
-
-type projectRolesResourceModel struct {
-	Team types.String   `tfsdk:"team"`
-	Role []types.String `tfsdk:"role"`
 }
 
 // Metadata returns the resource type name.
@@ -74,7 +63,8 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	err = r.UpdateProjectRoles(ctx, plan, project.ID, []string{""})
+	var toRemove []string // we dont remove on create
+	err = r.UpdateProjectRoles(ctx, plan, project.ID, toRemove)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error mapping teams to role in project"+project.ID,
@@ -316,7 +306,6 @@ func (r *projectResource) UpdateProjectRoles(ctx context.Context, plan projectRe
 	members = append(members, "member")
 	var empty []interface{}
 	empty = append(empty, "")
-
 	if len(teamsToRemove) > 0 {
 		for _, team := range teamsToRemove {
 			data := space.ProjectRoles{
@@ -330,9 +319,9 @@ func (r *projectResource) UpdateProjectRoles(ctx context.Context, plan projectRe
 			}
 		}
 	}
+	tflog.Info(ctx, strconv.Itoa(len(plan.MemberTeams)))
 
 	for _, team := range plan.MemberTeams {
-
 		data := space.ProjectRoles{
 			Team:        "name:" + team.ValueString(),
 			AddRoles:    members,
@@ -376,6 +365,7 @@ func CompareProjectRoles(ctx context.Context, path path.Path, state tfsdk.State,
 		}
 		return false, toRemove, nil
 	}
-	return true, []string{""}, nil
+	var nothing []string
+	return true, nothing, nil
 
 }
