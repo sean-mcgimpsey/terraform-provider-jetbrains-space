@@ -28,7 +28,7 @@ func (c *Client) GetProjects() (Projects, error) {
 }
 
 func (c *Client) GetProject(id string) (Project, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/http/projects/id:%s?$fields=id,archived,createdAt,description,icon,key,latestRepositoryActivity,name,private,memberTeams(name)", c.HostURL, id), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/http/projects/id:%s?$fields=id,archived,createdAt,description,icon,key,latestRepositoryActivity,name,private,memberTeams(name),members(profile(username))", c.HostURL, id), nil)
 	if err != nil {
 		return Project{}, err
 	}
@@ -165,5 +165,49 @@ func (c *Client) GetTeamToProjectRole(projectID string) ([]ProjectTeams, error) 
 	}
 
 	return projectSettings.MemberTeams, nil
+
+}
+
+func (c *Client) GetProjectMembers(projectID string) (Project, error) {
+	projectSettings, err := c.GetProject(projectID)
+	if err != nil {
+		return Project{}, fmt.Errorf("Problem getting project settings" + projectID + " " + err.Error())
+	}
+
+	return projectSettings, nil
+
+}
+
+func (c *Client) SetProjectMembers(data ProjectMembers, projectID string) error {
+
+	jsonData, err := toJson(data)
+	if err != nil {
+		return fmt.Errorf("Error converting jsonData")
+	}
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/people/members/update", c.HostURL, baseApiEndpoint, projectID), bytes.NewBuffer(jsonData))
+	req.Header.Add("Accept", "Application/json")
+	req.Header.Add("Content-Type", "Application/Json")
+	if err != nil {
+		return fmt.Errorf("Problem initiating request to update project roles via API! " + err.Error())
+	}
+	_, err = c.doRequest(req)
+	if err != nil {
+		return fmt.Errorf("Problem getting response from project roles (Updating) " + string(jsonData) + err.Error())
+
+	}
+
+	return nil
+
+}
+
+func toJson(source interface{}) ([]byte, error) {
+
+	jsonData, err := json.Marshal(source)
+	jsonData = bytes.Replace(jsonData, []byte("\"\""), []byte(""), 1)
+	if err != nil {
+		return nil, fmt.Errorf("Problem converting request data to valid json")
+	}
+
+	return jsonData, nil
 
 }

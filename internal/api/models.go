@@ -23,7 +23,12 @@ type Project struct {
 		Timestamp int64  `json:"timestamp"`
 	} `json:"createdAt"`
 	Archived    bool           `json:"archived"`
-	MemberTeams []ProjectTeams `json:"member_teams"`
+	MemberTeams []ProjectTeams `json:"memberTeams"`
+	Members     []struct {
+		Profile struct {
+			Username string `json:"username"`
+		} `json:"profile"`
+	} `json:"members"`
 }
 
 type ProjectTeams struct {
@@ -51,6 +56,12 @@ type ProjectRepos struct {
 
 type ProjectRoles struct {
 	Team        string        `json:"team"`
+	AddRoles    []interface{} `json:"addRoles"`
+	RemoveRoles []interface{} `json:"removeRoles"`
+}
+
+type ProjectMembers struct {
+	Profile     string        `json:"profile"`
 	AddRoles    []interface{} `json:"addRoles"`
 	RemoveRoles []interface{} `json:"removeRoles"`
 }

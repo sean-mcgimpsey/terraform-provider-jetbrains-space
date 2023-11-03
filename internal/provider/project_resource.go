@@ -51,7 +51,7 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	// Create new order
+	// Create new project
 	projectName := plan.Name.ValueString()
 	project, err := r.client.CreateProject(projectName)
 	protected := plan.Protected.ValueBool()
@@ -81,8 +81,31 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 		)
 		return
 	}
+	var membersToRemove []string // we dont remove on create
+	err = r.UpdateProjectMembers(ctx, plan, project.ID, membersToRemove)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error mapping teams to role in project"+project.ID,
+			err.Error(),
+		)
+		return
+	}
+
+	members, err := r.client.GetProjectMembers(project.ID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error getting project members in project; "+project.ID,
+			err.Error(),
+		)
+		return
+	}
+
 	for k, v := range memberTeams {
 		plan.MemberTeams[k] = types.StringValue(v.Name)
+	}
+
+	for k, v := range members.Members {
+		plan.Members[k] = types.StringValue(v.Profile.Username)
 	}
 	// Map response body to schema and populate Computed attribute values
 	plan.Name = types.StringValue(project.Name)
@@ -111,7 +134,7 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Get refreshed order value from HashiCups
+	// Get refreshed project values
 	project, err := r.client.GetProject(state.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -134,9 +157,27 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 		)
 		return
 	}
-	for k, value := range memberTeams {
-		state.MemberTeams[k] = types.StringValue(value.Name)
+	var memberTeamsState []types.String
+	for _, value := range memberTeams {
+		memberTeamsState = append(memberTeamsState, types.StringValue(value.Name))
 	}
+
+	state.MemberTeams = memberTeamsState
+
+	members, err := r.client.GetProjectMembers(project.ID)
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error getting project members. Project ID; "+project.ID,
+			err.Error(),
+		)
+		return
+	}
+	var memberState []types.String
+	for _, value := range members.Members {
+		memberState = append(memberState, types.StringValue(value.Profile.Username))
+	}
+	state.Members = memberState
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -159,7 +200,7 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 	project.Name = plan.Name.ValueString()
 	project.Key.Key = plan.Key.ValueString()
 	project.ID = plan.ID.ValueString()
-	// Update existing order
+	// Update project with plan values
 	_, err := r.client.UpdateProject(project.ID, project)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -168,21 +209,49 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 		)
 		return
 	}
-
-	_, toRemove, err := CompareProjectRoles(ctx, path.Root("member_teams"), resp.State, req.Plan)
-
-	err = r.UpdateProjectRoles(ctx, plan, project.ID, toRemove)
+	// Compare plan and state of project roles, so those not in plan can be removed.
+	different, toRemove, err := CompareProjectRoles(ctx, path.Root("member_teams"), resp.State, req.Plan)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error mapping teams to role in project"+project.ID,
+			"Error comparing state and plan values for Project Roles(member_teams). Project ID; "+project.ID,
 			err.Error(),
 		)
 		return
 	}
+	if different {
+		err = r.UpdateProjectRoles(ctx, plan, project.ID, toRemove)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error mapping teams to role in project"+project.ID,
+				err.Error(),
+			)
+			return
+		}
+	}
 
-	// Fetch updated items from GetOrder as UpdateOrder items are not
-	// populated.
+	// Compare plan and state of project members, so those not in plan can be removed.
+	different, toRemove, err = CompareProjectRoles(ctx, path.Root("members"), resp.State, req.Plan)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error comparing state and plan values for Project Roles(members). Project ID; "+project.ID,
+			err.Error(),
+		)
+		return
+	}
+	if different {
+		err = r.UpdateProjectMembers(ctx, plan, project.ID, toRemove)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error updating members in project"+project.ID,
+				err.Error(),
+			)
+			return
+		}
+	}
+
+	// Fetch updated items from Project
 	p, err := r.client.GetProject(project.ID)
+
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Reading Space project",
@@ -190,7 +259,9 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 		)
 		return
 	}
+
 	memberTeams, err := r.client.GetTeamToProjectRole(project.ID)
+
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error getting teams with project roles in project; "+project.ID,
@@ -198,6 +269,17 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 		)
 		return
 	}
+
+	members, err := r.client.GetProjectMembers(project.ID)
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error getting members in project; "+project.ID,
+			err.Error(),
+		)
+		return
+	}
+
 	plan.ID = types.StringValue(p.ID)
 	plan.Key = types.StringValue(p.Key.Key)
 	plan.Name = types.StringValue(p.Name)
@@ -205,6 +287,10 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 	plan.Protected = types.BoolValue(plan.Protected.ValueBool())
 	for k, v := range memberTeams {
 		plan.MemberTeams[k] = types.StringValue(v.Name)
+	}
+
+	for k, v := range members.Members {
+		plan.Members[k] = types.StringValue(v.Profile.Username)
 	}
 
 	diags = resp.State.Set(ctx, plan)
@@ -294,6 +380,10 @@ func (r *projectResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				ElementType: types.StringType,
 				Optional:    true,
 			},
+			"members": schema.ListAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+			},
 		},
 	}
 }
@@ -337,6 +427,45 @@ func (r *projectResource) UpdateProjectRoles(ctx context.Context, plan projectRe
 	return nil
 }
 
+func (r *projectResource) UpdateProjectMembers(ctx context.Context, plan projectResourceModel, projectID string, membersToRemove []string) error {
+
+	// Prepare request to map team to project role (Members)
+	var members []interface{}
+
+	members = append(members, "member")
+	var empty []interface{}
+	empty = append(empty, "")
+	if len(membersToRemove) > 0 {
+		for _, profile := range membersToRemove {
+			data := space.ProjectMembers{
+				Profile:     "username:" + profile,
+				AddRoles:    empty,
+				RemoveRoles: members,
+			}
+			err := r.client.SetProjectMembers(data, projectID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	tflog.Info(ctx, strconv.Itoa(len(plan.Members)))
+
+	for _, team := range plan.Members {
+		data := space.ProjectMembers{
+			Profile:     "username:" + team.ValueString(),
+			AddRoles:    members,
+			RemoveRoles: empty,
+		}
+
+		err := r.client.SetProjectMembers(data, projectID)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
 func CompareProjectRoles(ctx context.Context, path path.Path, state tfsdk.State, plan tfsdk.Plan) (bool, []string, error) {
 	var stateVal []types.String
 	var planVal []types.String
@@ -363,7 +492,7 @@ func CompareProjectRoles(ctx context.Context, path path.Path, state tfsdk.State,
 		for _, v := range stateVal {
 			toRemove = append(toRemove, v.ValueString())
 		}
-		return false, toRemove, nil
+		return true, toRemove, nil
 	}
 	var nothing []string
 	return true, nothing, nil

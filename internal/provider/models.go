@@ -55,6 +55,7 @@ type projectResourceModel struct {
 	LastUpdated types.String   `tfsdk:"last_updated"`
 	Protected   types.Bool     `tfsdk:"protected"`
 	MemberTeams []types.String `tfsdk:"member_teams"`
+	Members     []types.String `tfsdk:"members"`
 }
 
 type projectRolesResourceModel struct {

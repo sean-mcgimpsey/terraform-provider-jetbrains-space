@@ -181,7 +181,10 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	state.ID = types.StringValue(repo.ID)
 	state.Name = types.StringValue(repo.Name)
 
-	for k, v := range branch.ProtectedBranches {
+	var protectedBranchesState []repoSettingsBranchModel
+
+	for _, v := range branch.ProtectedBranches {
+
 		var branchApprovals []repoSettingsBranchModelApprovals
 		for _, va := range v.QualityGate.Approvals {
 
@@ -199,13 +202,16 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		for _, value := range v.Pattern {
 			patternsTF = append(patternsTF, types.StringValue(value))
 		}
-		state.ProtectedBranches[k] = repoSettingsBranchModel{
+
+		protectedBranchesState = append(protectedBranchesState, repoSettingsBranchModel{
 			Pattern: patternsTF,
 			QualityGate: repoSettingsBranchModelQualityGate{
 				Approvals: branchApprovals,
 			},
-		}
+		})
+
 	}
+	state.ProtectedBranches = protectedBranchesState
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
