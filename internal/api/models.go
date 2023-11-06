@@ -29,6 +29,10 @@ type Project struct {
 			Username string `json:"username"`
 		} `json:"profile"`
 	} `json:"members"`
+	AdminTeams []ProjectTeams `json:"adminTeams"`
+	Admins     []struct {
+		Username string `json:"username"`
+	} `json:"adminProfiles"`
 }
 
 type ProjectTeams struct {

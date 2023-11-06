@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"strings"
 	"time"
 
 	space "terraform-provider-jetbrains-space/internal/api"
@@ -16,7 +16,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -64,49 +63,52 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	var toRemove []string // we dont remove on create
-	err = r.UpdateProjectRoles(ctx, plan, project.ID, toRemove)
+
+	err = r.UpdateProjectRoles(ctx, plan, project.ID, toRemove, true, "admin")
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error mapping teams to role in project"+project.ID,
+			"Error mapping teams to admin role in project"+project.ID,
+			err.Error(),
+		)
+		return
+	}
+	err = r.UpdateProjectRoles(ctx, plan, project.ID, toRemove, true, "member")
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error mapping teams to member role in project"+project.ID,
+			err.Error(),
+		)
+		return
+	}
+	err = r.UpdateProjectRoles(ctx, plan, project.ID, toRemove, false, "admin")
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error mapping user to admin role in project"+project.ID,
+			err.Error(),
+		)
+		return
+	}
+	err = r.UpdateProjectRoles(ctx, plan, project.ID, toRemove, false, "member")
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error mapping user to member role in project"+project.ID,
+			err.Error(),
+		)
+		return
+	}
+	// Call get project again to get updated project values
+
+	p, err := r.client.GetProject(project.ID)
+
+	plan, err = FetchUpdatedAccessForProject(plan, p)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error setting project access profiles to state",
 			err.Error(),
 		)
 		return
 	}
 
-	memberTeams, err := r.client.GetTeamToProjectRole(project.ID)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting project teams in project; "+project.ID,
-			err.Error(),
-		)
-		return
-	}
-	var membersToRemove []string // we dont remove on create
-	err = r.UpdateProjectMembers(ctx, plan, project.ID, membersToRemove)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error mapping teams to role in project"+project.ID,
-			err.Error(),
-		)
-		return
-	}
-
-	members, err := r.client.GetProjectMembers(project.ID)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting project members in project; "+project.ID,
-			err.Error(),
-		)
-		return
-	}
-
-	for k, v := range memberTeams {
-		plan.MemberTeams[k] = types.StringValue(v.Name)
-	}
-
-	for k, v := range members.Members {
-		plan.Members[k] = types.StringValue(v.Profile.Username)
-	}
 	// Map response body to schema and populate Computed attribute values
 	plan.Name = types.StringValue(project.Name)
 	plan.ID = types.StringValue(project.ID)
@@ -149,35 +151,15 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 	state.Name = types.StringValue(project.Name)
 	state.Key = types.StringValue(project.Key.Key)
 
-	memberTeams, err := r.client.GetTeamToProjectRole(project.ID)
+	state, err = FetchUpdatedAccessForProject(state, project)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error getting teams with project roles in project; "+project.ID,
+			"Error setting project access profiles to state",
 			err.Error(),
 		)
 		return
 	}
-	var memberTeamsState []types.String
-	for _, value := range memberTeams {
-		memberTeamsState = append(memberTeamsState, types.StringValue(value.Name))
-	}
 
-	state.MemberTeams = memberTeamsState
-
-	members, err := r.client.GetProjectMembers(project.ID)
-
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting project members. Project ID; "+project.ID,
-			err.Error(),
-		)
-		return
-	}
-	var memberState []types.String
-	for _, value := range members.Members {
-		memberState = append(memberState, types.StringValue(value.Profile.Username))
-	}
-	state.Members = memberState
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -209,43 +191,71 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 		)
 		return
 	}
-	// Compare plan and state of project roles, so those not in plan can be removed.
-	different, toRemove, err := CompareProjectRoles(ctx, path.Root("member_teams"), resp.State, req.Plan)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error comparing state and plan values for Project Roles(member_teams). Project ID; "+project.ID,
-			err.Error(),
-		)
-		return
+
+	type MembersMap struct {
+		Remove    []string
+		Different bool
+		Team      bool
+		TeamType  string
 	}
-	if different {
-		err = r.UpdateProjectRoles(ctx, plan, project.ID, toRemove)
+	membersMap := []MembersMap{}
+
+	for _, v := range []string{"members", "member_teams", "admins", "admin_teams"} {
+		// Compare plan and state of project roles, so those not in plan can be removed.
+		diff, toRemove, err := CompareProjectRoles(ctx, path.Root(v), resp.State, req.Plan)
 		if err != nil {
 			resp.Diagnostics.AddError(
-				"Error mapping teams to role in project"+project.ID,
+				"Error comparing state and plan values for Project Roles;"+v+". Project ID; "+project.ID,
 				err.Error(),
 			)
 			return
 		}
+
+		var isTeam bool
+
+		var typeOfTeam string
+		if strings.HasSuffix(v, "_teams") {
+			isTeam = true
+		} else {
+			isTeam = false
+		}
+		if strings.HasPrefix(v, "member") {
+			typeOfTeam = "member"
+		}
+		if strings.HasPrefix(v, "admin") {
+			typeOfTeam = "admin"
+		}
+
+		m := MembersMap{
+			Different: diff,
+			Remove:    toRemove,
+			Team:      isTeam,
+			TeamType:  typeOfTeam,
+		}
+
+		membersMap = append(membersMap, m)
 	}
 
-	// Compare plan and state of project members, so those not in plan can be removed.
-	different, toRemove, err = CompareProjectRoles(ctx, path.Root("members"), resp.State, req.Plan)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error comparing state and plan values for Project Roles(members). Project ID; "+project.ID,
-			err.Error(),
-		)
-		return
-	}
-	if different {
-		err = r.UpdateProjectMembers(ctx, plan, project.ID, toRemove)
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error updating members in project"+project.ID,
-				err.Error(),
-			)
-			return
+	for _, v := range membersMap {
+		if v.Different {
+			if len(v.Remove) > 0 {
+				err = r.RemoveProjectMembers(ctx, plan, project.ID, v.Remove, v.Team, v.TeamType)
+				if err != nil {
+					resp.Diagnostics.AddError(
+						"Error removing members from project; "+project.ID,
+						err.Error(),
+					)
+					return
+				}
+			}
+			err = r.UpdateProjectRoles(ctx, plan, project.ID, v.Remove, v.Team, v.TeamType)
+			if err != nil {
+				resp.Diagnostics.AddError(
+					"Error updates members within project; "+project.ID,
+					err.Error(),
+				)
+				return
+			}
 		}
 	}
 
@@ -260,21 +270,10 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	memberTeams, err := r.client.GetTeamToProjectRole(project.ID)
-
+	plan, err = FetchUpdatedAccessForProject(plan, p)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error getting teams with project roles in project; "+project.ID,
-			err.Error(),
-		)
-		return
-	}
-
-	members, err := r.client.GetProjectMembers(project.ID)
-
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error getting members in project; "+project.ID,
+			"Error setting project access profiles to state",
 			err.Error(),
 		)
 		return
@@ -283,21 +282,16 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 	plan.ID = types.StringValue(p.ID)
 	plan.Key = types.StringValue(p.Key.Key)
 	plan.Name = types.StringValue(p.Name)
+
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 	plan.Protected = types.BoolValue(plan.Protected.ValueBool())
-	for k, v := range memberTeams {
-		plan.MemberTeams[k] = types.StringValue(v.Name)
-	}
-
-	for k, v := range members.Members {
-		plan.Members[k] = types.StringValue(v.Profile.Username)
-	}
-
+	// Set state to fully populated data
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
@@ -384,85 +378,122 @@ func (r *projectResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				ElementType: types.StringType,
 				Optional:    true,
 			},
+			"admin_teams": schema.ListAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+			},
+			"admins": schema.ListAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+			},
 		},
 	}
 }
 
-func (r *projectResource) UpdateProjectRoles(ctx context.Context, plan projectResourceModel, projectID string, teamsToRemove []string) error {
+func (r *projectResource) UpdateProjectRoles(ctx context.Context, plan projectResourceModel, projectID string, toRemove []string, isTeam bool, memberType string) error {
 
 	// Prepare request to map team to project role (Members)
 	var members []interface{}
 
-	members = append(members, "member")
+	members = append(members, memberType)
 	var empty []interface{}
 	empty = append(empty, "")
-	if len(teamsToRemove) > 0 {
-		for _, team := range teamsToRemove {
-			data := space.ProjectRoles{
-				Team:        "name:" + team,
-				AddRoles:    empty,
-				RemoveRoles: members,
-			}
-			err := r.client.MapTeamToProjectRole(data, projectID)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	tflog.Info(ctx, strconv.Itoa(len(plan.MemberTeams)))
-
-	for _, team := range plan.MemberTeams {
+	if isTeam {
 		data := space.ProjectRoles{
-			Team:        "name:" + team.ValueString(),
 			AddRoles:    members,
 			RemoveRoles: empty,
 		}
+		if memberType == "member" {
+			for _, v := range plan.MemberTeams {
+				data.Team = "name:" + v.ValueString()
+				err := r.client.MapTeamToProjectRole(data, projectID)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			for _, v := range plan.AdminTeams {
 
-		err := r.client.MapTeamToProjectRole(data, projectID)
-		if err != nil {
-			return err
+				data.Team = "name:" + v.ValueString()
+				err := r.client.MapTeamToProjectRole(data, projectID)
+				if err != nil {
+					return err
+				}
+			}
 		}
 
+	} else {
+		data := space.ProjectMembers{
+			AddRoles:    members,
+			RemoveRoles: empty,
+		}
+		if memberType == "member" {
+
+			for _, v := range plan.Members {
+				data.Profile = "username:" + v.ValueString()
+				err := r.client.SetProjectMembers(data, projectID)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			if memberType == "admin" {
+				for _, v := range plan.Admins {
+					data.Profile = "username:" + v.ValueString()
+					err := r.client.SetProjectMembers(data, projectID)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
 	}
 	return nil
 }
 
-func (r *projectResource) UpdateProjectMembers(ctx context.Context, plan projectResourceModel, projectID string, membersToRemove []string) error {
+func (r *projectResource) RemoveProjectMembers(ctx context.Context, plan projectResourceModel, projectID string, toRemove []string, isTeam bool, memberType string) error {
 
 	// Prepare request to map team to project role (Members)
 	var members []interface{}
 
-	members = append(members, "member")
+	members = append(members, memberType)
 	var empty []interface{}
 	empty = append(empty, "")
-	if len(membersToRemove) > 0 {
-		for _, profile := range membersToRemove {
-			data := space.ProjectMembers{
-				Profile:     "username:" + profile,
+
+	if len(toRemove) > 0 {
+		var data space.ProjectRoles
+		if isTeam {
+			data = space.ProjectRoles{
 				AddRoles:    empty,
 				RemoveRoles: members,
 			}
-			err := r.client.SetProjectMembers(data, projectID)
-			if err != nil {
-				return err
+
+			for _, v := range toRemove {
+
+				data.Team = "name:" + v
+
+				err := r.client.MapTeamToProjectRole(data, projectID)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			data := space.ProjectMembers{
+				AddRoles:    empty,
+				RemoveRoles: members,
+			}
+			for _, v := range toRemove {
+
+				data.Profile = "username:" + v
+
+				err := r.client.SetProjectMembers(data, projectID)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
-	tflog.Info(ctx, strconv.Itoa(len(plan.Members)))
 
-	for _, team := range plan.Members {
-		data := space.ProjectMembers{
-			Profile:     "username:" + team.ValueString(),
-			AddRoles:    members,
-			RemoveRoles: empty,
-		}
-
-		err := r.client.SetProjectMembers(data, projectID)
-		if err != nil {
-			return err
-		}
-
-	}
 	return nil
 }
 
@@ -470,6 +501,7 @@ func CompareProjectRoles(ctx context.Context, path path.Path, state tfsdk.State,
 	var stateVal []types.String
 	var planVal []types.String
 	var different = false
+
 	diag := state.GetAttribute(ctx, path, &stateVal)
 	if diag.HasError() {
 		return false, []string{""}, fmt.Errorf("Problem getting state value for roles")
@@ -496,5 +528,37 @@ func CompareProjectRoles(ctx context.Context, path path.Path, state tfsdk.State,
 	}
 	var nothing []string
 	return true, nothing, nil
+
+}
+
+func FetchUpdatedAccessForProject(state projectResourceModel, project space.Project) (projectResourceModel, error) {
+
+	var memberTeamsState []types.String
+	for _, value := range project.MemberTeams {
+		memberTeamsState = append(memberTeamsState, types.StringValue(value.Name))
+	}
+
+	state.MemberTeams = memberTeamsState
+
+	var memberState []types.String
+	for _, value := range project.Members {
+		memberState = append(memberState, types.StringValue(value.Profile.Username))
+	}
+	state.Members = memberState
+
+	var adminTeamsState []types.String
+	for _, value := range project.AdminTeams {
+		adminTeamsState = append(adminTeamsState, types.StringValue(value.Name))
+	}
+
+	state.AdminTeams = adminTeamsState
+
+	var adminState []types.String
+	for _, value := range project.Admins {
+		adminState = append(adminState, types.StringValue(value.Username))
+	}
+	state.Admins = adminState
+
+	return state, nil
 
 }

@@ -28,7 +28,7 @@ func (c *Client) GetProjects() (Projects, error) {
 }
 
 func (c *Client) GetProject(id string) (Project, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/http/projects/id:%s?$fields=id,archived,createdAt,description,icon,key,latestRepositoryActivity,name,private,memberTeams(name),members(profile(username))", c.HostURL, id), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/http/projects/id:%s?$fields=id,archived,createdAt,description,icon,key,latestRepositoryActivity,name,private,memberTeams(name),members(profile(username)),adminTeams(name),adminProfiles(username)", c.HostURL, id), nil)
 	if err != nil {
 		return Project{}, err
 	}

@@ -56,6 +56,8 @@ type projectResourceModel struct {
 	Protected   types.Bool     `tfsdk:"protected"`
 	MemberTeams []types.String `tfsdk:"member_teams"`
 	Members     []types.String `tfsdk:"members"`
+	AdminTeams  []types.String `tfsdk:"admin_teams"`
+	Admins      []types.String `tfsdk:"admins"`
 }
 
 type projectRolesResourceModel struct {
