@@ -42,7 +42,7 @@ func (r *projectResource) Metadata(_ context.Context, req resource.MetadataReque
 
 // Create a new resource.
 func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	// Retrieve values from plan
+	// Retrieve values from plan.
 	var plan projectResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -50,7 +50,7 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	// Create new project
+	// Create new project.
 	projectName := plan.Name.ValueString()
 	project, err := r.client.CreateProject(projectName)
 	protected := plan.Protected.ValueBool()
@@ -62,7 +62,7 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	var toRemove []string // we dont remove on create
+	var toRemove []string // we dont remove on create.
 
 	err = r.UpdateProjectRoles(ctx, plan, project.ID, toRemove, true, "admin")
 	if err != nil {
@@ -96,7 +96,7 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 		)
 		return
 	}
-	// Call get project again to get updated project values
+	// Call get project again to get updated project values.
 
 	p, err := r.client.GetProject(project.ID)
 
@@ -109,16 +109,16 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	// Map response body to schema and populate Computed attribute values
+	// Map response body to schema and populate Computed attribute values.
 	plan.Name = types.StringValue(project.Name)
 	plan.ID = types.StringValue(project.ID)
 	plan.Key = types.StringValue(project.Key.Key)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 	plan.Protected = types.BoolValue(protected)
 
-	//plan.Key = types.StringValue(project.Key.Key)
+	//plan.Key = types.StringValue(project.Key.Key).
 
-	// Set state to fully populated data
+	// Set state to fully populated data.
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -136,7 +136,7 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Get refreshed project values
+	// Get refreshed project values.
 	project, err := r.client.GetProject(state.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -146,7 +146,7 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Overwrite items with refreshed state
+	// Overwrite items with refreshed state.
 	state.ID = types.StringValue(project.ID)
 	state.Name = types.StringValue(project.Name)
 	state.Key = types.StringValue(project.Key.Key)
@@ -160,7 +160,7 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Set refreshed state
+	// Set refreshed state.
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -170,7 +170,7 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// Retrieve values from plan
+	// Retrieve values from plan.
 	var plan projectResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -182,7 +182,7 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 	project.Name = plan.Name.ValueString()
 	project.Key.Key = plan.Key.ValueString()
 	project.ID = plan.ID.ValueString()
-	// Update project with plan values
+	// Update project with plan values.
 	_, err := r.client.UpdateProject(project.ID, project)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -259,7 +259,7 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 	}
 
-	// Fetch updated items from Project
+	// Fetch updated items from Project.
 	p, err := r.client.GetProject(project.ID)
 
 	if err != nil {
@@ -285,7 +285,7 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 	plan.Protected = types.BoolValue(plan.Protected.ValueBool())
-	// Set state to fully populated data
+	// Set state to fully populated data.
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -296,7 +296,7 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *projectResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// Retrieve values from state
+	// Retrieve values from state.
 	var state projectResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -304,14 +304,14 @@ func (r *projectResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	// Delete existing order
+	// Delete existing order.
 	if state.Protected.ValueBool() {
 		resp.Diagnostics.AddError(
 			"Project is protected, not deleting!",
 			"",
 		)
 	} else {
-		// Delete existing order
+		// Delete existing order.
 		err := r.client.DeleteProject(state.ID.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
@@ -324,7 +324,7 @@ func (r *projectResource) Delete(ctx context.Context, req resource.DeleteRequest
 }
 
 func (r *projectResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Retrieve import ID and save to id attribute
+	// Retrieve import ID and save to id attribute.
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
@@ -392,7 +392,7 @@ func (r *projectResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 
 func (r *projectResource) UpdateProjectRoles(ctx context.Context, plan projectResourceModel, projectID string, toRemove []string, isTeam bool, memberType string) error {
 
-	// Prepare request to map team to project role (Members)
+	// Prepare request to map team to project role (Members).
 	var members []interface{}
 
 	members = append(members, memberType)
@@ -453,7 +453,7 @@ func (r *projectResource) UpdateProjectRoles(ctx context.Context, plan projectRe
 
 func (r *projectResource) RemoveProjectMembers(ctx context.Context, plan projectResourceModel, projectID string, toRemove []string, isTeam bool, memberType string) error {
 
-	// Prepare request to map team to project role (Members)
+	// Prepare request to map team to project role (Members).
 	var members []interface{}
 
 	members = append(members, memberType)

@@ -87,7 +87,7 @@ func (d *ProjectDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		return
 	}
 
-	// Map response body to model
+	// Map response body to model.
 	for _, project := range projects.AllProjects {
 		projectState := ProjectsModel{
 			Name: types.StringValue(project.Name),
@@ -98,7 +98,7 @@ func (d *ProjectDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		state.Projects = append(state.Projects, projectState)
 	}
 
-	// Set state
+	// Set state.
 	diags := resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {

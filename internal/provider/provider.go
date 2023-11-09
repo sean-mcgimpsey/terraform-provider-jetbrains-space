@@ -51,7 +51,7 @@ func (p *jetbrainsSpaceProvider) Schema(_ context.Context, _ provider.SchemaRequ
 
 // Configure prepares a jetbrainsSpace API client for data sources and resources.
 func (p *jetbrainsSpaceProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	// Retrieve provider data from configuration
+	// Retrieve provider data from configuration.
 	tflog.Info(ctx, "Configurating Jetbrains Space provider")
 	tflog.Info(ctx, "MADE IT HERE")
 	var config jetbrainsSpaceProviderModel
@@ -129,7 +129,7 @@ func (p *jetbrainsSpaceProvider) Configure(ctx context.Context, req provider.Con
 
 	ctx = tflog.SetField(ctx, "jetbrainspsace_host", host)
 	ctx = tflog.SetField(ctx, "jetbrainspsace_token", token)
-	// Create a new jetbrainsSpace client using the configuration values
+	// Create a new jetbrainsSpace client using the configuration values.
 	client, err := space.NewClient(host, token)
 	if err != nil {
 		resp.Diagnostics.AddError(

@@ -100,7 +100,7 @@ func (r *repoResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 // Create a new resource.
 func (r *repoResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	// Retrieve values from plan
+	// Retrieve values from plan.
 	var plan repoResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -150,7 +150,7 @@ func (r *repoResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 // Read refreshes the Terraform state with the latest data.
 func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	// Get current state
+	// Get current state.
 	var state repoResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -158,7 +158,7 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	// Get refreshed order value from HashiCups
+	// Get refreshed repo data.
 	repo, err := r.client.GetRepository(state.Name.ValueString(), state.ProjectID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -177,7 +177,7 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	// Overwrite items with refreshed state
+	// Overwrite items with refreshed state.
 	state.ID = types.StringValue(repo.ID)
 	state.Name = types.StringValue(repo.Name)
 
@@ -213,7 +213,7 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 	state.ProtectedBranches = protectedBranchesState
 
-	// Set refreshed state
+	// Set refreshed state.
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -241,7 +241,7 @@ func CompareValues(ctx context.Context, path path.Path, state tfsdk.State, plan 
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	// Retrieve values from plan
+	// Retrieve values from plan.
 	var plan repoResourceModel
 	diags := req.Plan.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -252,7 +252,6 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	var repo space.Repository
 	name := plan.Name.ValueString()
 	projectid := plan.ProjectID.ValueString()
-	//if !stateDescription.Equal(planDescription) {
 	different, value, err := CompareValues(ctx, path.Root("description"), resp.State, req.Plan)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -320,8 +319,7 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	plan.Description = types.StringValue(p.Description)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 	plan.Protected = types.BoolValue(plan.Protected.ValueBool())
-	/* 	plan.ProtectedBranches, err = UpdateProtectBranches(ctx, plan.ProtectedBranches, r, plan.Name.ValueString(), plan.ProjectID.ValueString())
-	 */
+
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -331,7 +329,7 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *repoResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// Retrieve values from state
+	// Retrieve values from state.
 	var state repoResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -397,7 +395,7 @@ func (r *repoResource) UpdateRepositoryProtectedBranches(ctx context.Context, Pr
 	var members = []string{"@Members"}
 	var admins = []string{"@Admins"}
 	var data = space.ProtectedBranchesPost{}
-	for k, _ := range plan.ProtectedBranches {
+	for k := range plan.ProtectedBranches {
 		var patterns []string
 		for _, va := range plan.ProtectedBranches[k].Pattern {
 			patterns = append(patterns, va.ValueString())
