@@ -21,7 +21,10 @@ description: |-
 
 ### Optional
 
+- `admin_teams` (List of String)
+- `admins` (List of String)
 - `member_teams` (List of String)
+- `members` (List of String)
 - `protected` (Boolean)
 
 ### Read-Only
