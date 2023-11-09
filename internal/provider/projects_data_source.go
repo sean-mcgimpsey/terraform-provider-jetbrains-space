@@ -91,7 +91,7 @@ func (d *ProjectDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	for _, project := range projects.AllProjects {
 		projectState := ProjectsModel{
 			Name: types.StringValue(project.Name),
-			Id:   types.StringValue(project.ID),
+			ID:   types.StringValue(project.ID),
 			Key:  types.StringValue(project.Key.Key),
 		}
 

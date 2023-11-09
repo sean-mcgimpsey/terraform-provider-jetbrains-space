@@ -4,7 +4,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// Provider
+// Provider.
 // jetbrainsSpaceProvider is the provider implementation.
 type jetbrainsSpaceProvider struct {
 	// version is set to the provider version on release, "dev" when the
@@ -21,7 +21,7 @@ type jetbrainsSpaceProviderModel struct {
 	Token types.String `tfsdk:"token"`
 }
 
-// Repo Resources
+// Repo Resources.
 type repoResourceModel struct {
 	Name              types.String              `tfsdk:"name"`
 	ID                types.String              `tfsdk:"id"`
@@ -47,7 +47,7 @@ type repoSettingsBranchModelApprovals struct {
 	ApprovedBy   []types.String `tfsdk:"approved_by"`
 }
 
-// Project Resource
+// Project Resources.
 type projectResourceModel struct {
 	Name        types.String   `tfsdk:"name"`
 	Key         types.String   `tfsdk:"key"`
@@ -60,19 +60,14 @@ type projectResourceModel struct {
 	Admins      []types.String `tfsdk:"admins"`
 }
 
-type projectRolesResourceModel struct {
-	Team types.String   `tfsdk:"team"`
-	Role []types.String `tfsdk:"role"`
-}
-
-// Data sources
-
+// ProjectDataSourceModel - Top level.
 type ProjectDataSourceModel struct {
 	Projects []ProjectsModel `tfsdk:"projects"`
 }
 
+// ProjectsModel - Sub attrs of ProjectDataSourceModel.
 type ProjectsModel struct {
 	Key  types.String `tfsdk:"key"`
-	Id   types.String `tfsdk:"id"`
+	ID   types.String `tfsdk:"id"`
 	Name types.String `tfsdk:"name"`
 }

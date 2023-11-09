@@ -99,11 +99,17 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 	// Call get project again to get updated project values.
 
 	p, err := r.client.GetProject(project.ID)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error getting project info.",
+			err.Error(),
+		)
+	}
 
 	plan, err = FetchUpdatedAccessForProject(plan, p)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error setting project access profiles to state",
+			"Error setting project access profiles to state.",
 			err.Error(),
 		)
 		return
@@ -128,7 +134,7 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 
 // Read refreshes the Terraform state with the latest data.
 func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	// Get current state
+	// Get current state.
 	var state projectResourceModel
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -497,6 +503,7 @@ func (r *projectResource) RemoveProjectMembers(ctx context.Context, plan project
 	return nil
 }
 
+// CompareProjectRoles - Compare roles in state and plan.
 func CompareProjectRoles(ctx context.Context, path path.Path, state tfsdk.State, plan tfsdk.Plan) (bool, []string, error) {
 	var stateVal []types.String
 	var planVal []types.String
@@ -531,6 +538,7 @@ func CompareProjectRoles(ctx context.Context, path path.Path, state tfsdk.State,
 
 }
 
+// FetchUpdatedAccessForProject - obtain the latest access settings for the project.
 func FetchUpdatedAccessForProject(state projectResourceModel, project space.Project) (projectResourceModel, error) {
 
 	var memberTeamsState []types.String

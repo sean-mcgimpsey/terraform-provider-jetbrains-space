@@ -48,7 +48,7 @@ func (c *Client) GetProject(id string) (Project, error) {
 }
 
 func (c *Client) getProjectRepos(projectId string) (ProjectRepos, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s/id:%s?$fields=repos", c.HostURL, baseApiEndpoint, projectId), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s/id:%s?$fields=repos", c.HostURL, baseAPIEndpoint, projectId), nil)
 	if err != nil {
 		return ProjectRepos{}, err
 	}
@@ -77,7 +77,7 @@ func (c *Client) CreateProject(name string) (Project, error) {
 	data.Name = name
 	data.Key.Key = strings.ToUpper(strings.ReplaceAll(name, " ", "-"))
 	bytesData, _ := json.Marshal(data)
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s", c.HostURL, baseApiEndpoint), bytes.NewBuffer(bytesData))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s", c.HostURL, baseAPIEndpoint), bytes.NewBuffer(bytesData))
 	if err != nil {
 		return Project{}, err
 	}
@@ -102,7 +102,7 @@ func (c *Client) UpdateProject(id string, project Project) (Project, error) {
 	})
 	data.Name = project.Name
 	bytesData, _ := json.Marshal(data)
-	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s%s/id:%s", c.HostURL, baseApiEndpoint, id), bytes.NewBuffer(bytesData))
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s%s/id:%s", c.HostURL, baseAPIEndpoint, id), bytes.NewBuffer(bytesData))
 	if err != nil {
 		return Project{}, err
 	}
@@ -122,7 +122,7 @@ func (c *Client) UpdateProject(id string, project Project) (Project, error) {
 }
 
 func (c *Client) DeleteProject(id string) error {
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s%s/id:%s", c.HostURL, baseApiEndpoint, id), nil)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s%s/id:%s", c.HostURL, baseAPIEndpoint, id), nil)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (c *Client) MapTeamToProjectRole(data ProjectRoles, projectID string) error
 	if err != nil {
 		return fmt.Errorf("Problem converting request data to valid json")
 	}
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/people/teams/update", c.HostURL, baseApiEndpoint, projectID), bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/people/teams/update", c.HostURL, baseAPIEndpoint, projectID), bytes.NewBuffer(jsonData))
 	req.Header.Add("Accept", "Application/json")
 	req.Header.Add("Content-Type", "Application/Json")
 	if err != nil {
@@ -184,7 +184,7 @@ func (c *Client) SetProjectMembers(data ProjectMembers, projectID string) error 
 	if err != nil {
 		return fmt.Errorf("Error converting jsonData")
 	}
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/people/members/update", c.HostURL, baseApiEndpoint, projectID), bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/people/members/update", c.HostURL, baseAPIEndpoint, projectID), bytes.NewBuffer(jsonData))
 	req.Header.Add("Accept", "Application/json")
 	req.Header.Add("Content-Type", "Application/Json")
 	if err != nil {

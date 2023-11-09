@@ -27,7 +27,7 @@ var (
 	_ resource.ResourceWithImportState = &repoResource{}
 )
 
-// NewrepoResource is a helper function to simplify the provider implementation.
+// NewRepoResource is a helper function to simplify the provider implementation.
 func NewRepoResource() resource.Resource {
 	return &repoResource{}
 }
@@ -109,7 +109,7 @@ func (r *repoResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	repoName := plan.Name.ValueString()
-	projectId := plan.ProjectID.ValueString()
+	projectID := plan.ProjectID.ValueString()
 	protected := plan.Protected.ValueBool()
 	repoData := space.CreateRepositoryData{
 		Description:   plan.Description.ValueString(),
@@ -118,7 +118,7 @@ func (r *repoResource) Create(ctx context.Context, req resource.CreateRequest, r
 		DefaultSetup:  true,
 	}
 
-	repo, err := r.client.CreateRepository(repoName, projectId, repoData)
+	repo, err := r.client.CreateRepository(repoName, projectID, repoData)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating repo - "+plan.Name.String()+" ",
@@ -129,7 +129,7 @@ func (r *repoResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	plan.Name = types.StringValue(repo.Name)
 	plan.ID = types.StringValue(repo.ID)
-	plan.ProjectID = types.StringValue(projectId)
+	plan.ProjectID = types.StringValue(projectID)
 	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
 	plan.Protected = types.BoolValue(protected)
 	plan, err = r.UpdateRepositoryProtectedBranches(ctx, plan.ProjectID.ValueString(), plan.Name.ValueString(), plan)
@@ -221,6 +221,7 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 }
 
+// CompareValues - Compare the values of state and plan to determine if they differ.
 func CompareValues(ctx context.Context, path path.Path, state tfsdk.State, plan tfsdk.Plan) (bool, string, error) {
 	var stateVal types.String
 	var planVal types.String
@@ -251,7 +252,7 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	var repo space.Repository
 	name := plan.Name.ValueString()
-	projectid := plan.ProjectID.ValueString()
+	projectID := plan.ProjectID.ValueString()
 	different, value, err := CompareValues(ctx, path.Root("description"), resp.State, req.Plan)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -260,7 +261,7 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		)
 	}
 	if different {
-		_, err := r.client.UpdateRepositoryDescription(projectid, name, value)
+		_, err := r.client.UpdateRepositoryDescription(projectID, name, value)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error Updating Space repo; "+repo.ID+" is the value...",
@@ -278,7 +279,7 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		)
 	}
 	if different {
-		_, err := r.client.UpdateRepositoryDefaultBranch(projectid, name, value)
+		_, err := r.client.UpdateRepositoryDefaultBranch(projectID, name, value)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error Updating Space repo;"+repo.ID,
@@ -288,7 +289,7 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		}
 	}
 
-	err = r.client.DeleteRepositoryProtectedBranches(projectid, name)
+	err = r.client.DeleteRepositoryProtectedBranches(projectID, name)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Deleting Space repo;"+repo.ID,
@@ -305,10 +306,10 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		)
 		return
 	}
-	p, err := r.client.GetRepository(name, projectid)
+	p, err := r.client.GetRepository(name, projectID)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Reading Space project"+projectid,
+			"Error Reading Space project"+projectID,
 			err.Error(),
 		)
 		return

@@ -3,13 +3,13 @@ package jetbrains_space_api_client_go
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
 
 const (
-	baseApiEndpoint = "/api/http/projects"
+	baseAPIEndpoint = "/api/http/projects"
 )
 
 func NewClient(host, token string) (*Client, error) {
@@ -39,7 +39,7 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	}
 	defer res.Body.Close()
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}

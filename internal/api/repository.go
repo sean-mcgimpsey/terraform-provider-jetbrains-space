@@ -57,7 +57,7 @@ func (c *Client) GetRepository(repositoryName, projectId string) (Repository, er
 
 func (c *Client) CreateRepository(repositoryName string, projectId string, data CreateRepositoryData) (Repository, error) {
 	bytesData, _ := json.Marshal(data)
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s", c.HostURL, baseApiEndpoint, projectId, repositoryName), bytes.NewBuffer(bytesData))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s", c.HostURL, baseAPIEndpoint, projectId, repositoryName), bytes.NewBuffer(bytesData))
 	if err != nil {
 		return Repository{}, err
 	}
@@ -78,7 +78,7 @@ func (c *Client) CreateRepository(repositoryName string, projectId string, data 
 
 func (c *Client) UpdateRepository(projectId, name string, data CreateRepositoryData) (Repository, error) {
 	bytesData, _ := json.Marshal(data)
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s/settings", c.HostURL, baseApiEndpoint, projectId, name), bytes.NewBuffer(bytesData))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s/settings", c.HostURL, baseAPIEndpoint, projectId, name), bytes.NewBuffer(bytesData))
 	if err != nil {
 		return Repository{}, err
 	}
@@ -102,7 +102,7 @@ func (c *Client) UpdateRepositoryDescription(projectId, name string, description
 		"description": description,
 	}
 	bytesData, _ := json.Marshal(desc)
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s/description", c.HostURL, baseApiEndpoint, projectId, name), bytes.NewBuffer(bytesData))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s/description", c.HostURL, baseAPIEndpoint, projectId, name), bytes.NewBuffer(bytesData))
 	if err != nil {
 		return "", fmt.Errorf("Problem!")
 	}
@@ -120,7 +120,7 @@ func (c *Client) UpdateRepositoryDefaultBranch(projectId, name string, branch st
 		"branch": branch,
 	}
 	bytesData, _ := json.Marshal(desc)
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s/default-branch", c.HostURL, baseApiEndpoint, projectId, name), bytes.NewBuffer(bytesData))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s/default-branch", c.HostURL, baseAPIEndpoint, projectId, name), bytes.NewBuffer(bytesData))
 	if err != nil {
 		return "", fmt.Errorf("Problem initiating request to update repository branch via API! " + err.Error())
 	}
@@ -134,7 +134,7 @@ func (c *Client) UpdateRepositoryDefaultBranch(projectId, name string, branch st
 }
 
 func (c *Client) DeleteRepository(projectId, repositoryName string) error {
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s%s/id:%s/repositories/%s", c.HostURL, baseApiEndpoint, projectId, repositoryName), nil)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s%s/id:%s/repositories/%s", c.HostURL, baseAPIEndpoint, projectId, repositoryName), nil)
 	if err != nil {
 		return err
 	}
@@ -149,15 +149,14 @@ func (c *Client) DeleteRepository(projectId, repositoryName string) error {
 
 func (c *Client) DeleteRepositoryProtectedBranches(projectId, name string) error {
 
-	settings := make(map[string]interface{})
-	settings = map[string]interface{}{
+	settings := map[string]interface{}{
 		"settings": map[string]interface{}{
 			"protectedBranches": nil,
 		},
 	}
 
 	bytesData, _ := json.Marshal(settings)
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s/settings", c.HostURL, baseApiEndpoint, projectId, name), bytes.NewBuffer(bytesData))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s/settings", c.HostURL, baseAPIEndpoint, projectId, name), bytes.NewBuffer(bytesData))
 	if err != nil {
 		return fmt.Errorf("Problem initiating request to deleted repository branch via API! " + err.Error())
 	}
@@ -177,7 +176,7 @@ func (c *Client) UpdateRepoProtectedBranches(data ProtectedBranchesPost, Project
 	if err != nil {
 		return ProtectedBranches{}, fmt.Errorf("Problem converting request data to valid json")
 	}
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s/settings", c.HostURL, baseApiEndpoint, ProjectID, Repository), bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s%s/id:%s/repositories/%s/settings", c.HostURL, baseAPIEndpoint, ProjectID, Repository), bytes.NewBuffer(jsonData))
 	if err != nil {
 		return ProtectedBranches{}, fmt.Errorf("Problem initiating request to update repository branch via API! " + err.Error())
 	}
@@ -199,7 +198,10 @@ func (c *Client) UpdateRepoProtectedBranches(data ProtectedBranchesPost, Project
 
 func (c *Client) GetRepoProtectedBranches(ProjectID string, Repository string) (ProtectedBranches, error) {
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s/id:%s/repositories/%s/settings?$fields=protectedBranches(allowCreate,allowDelete,allowForcePush,allowPush,pattern,qualityGate(approvals(approvedBy,minApprovals)))", c.HostURL, baseApiEndpoint, ProjectID, Repository), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s/id:%s/repositories/%s/settings?$fields=protectedBranches(allowCreate,allowDelete,allowForcePush,allowPush,pattern,qualityGate(approvals(approvedBy,minApprovals)))", c.HostURL, baseAPIEndpoint, ProjectID, Repository), nil)
+	if err != nil {
+		return ProtectedBranches{}, fmt.Errorf("Problem setting up new http request; " + err.Error())
+	}
 	body, err := c.doRequest(req)
 	if err != nil {
 		return ProtectedBranches{}, fmt.Errorf("Problem getting repository branch settings via API! " + err.Error())
