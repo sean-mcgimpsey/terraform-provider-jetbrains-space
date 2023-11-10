@@ -1,3 +1,3 @@
-data "scaffolding_example" "example" {
-  configurable_attribute = "some-value"
+data "jetbrainsspace_project" "exampleproj" {
+  name = "exampleproj"
 }
