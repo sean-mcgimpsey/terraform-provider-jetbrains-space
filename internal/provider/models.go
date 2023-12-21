@@ -39,12 +39,17 @@ type repoSettingsBranchModel struct {
 }
 
 type repoSettingsBranchModelQualityGate struct {
-	Approvals []repoSettingsBranchModelApprovals `tfsdk:"approvals"`
+	Approvals      []repoSettingsBranchModelApprovals `tfsdk:"approvals"`
+	AutomationJobs []repoSettingsBranchModelJobs      `tfsdk:"automation_jobs"`
 }
 
 type repoSettingsBranchModelApprovals struct {
 	MinApprovals types.Int64    `tfsdk:"min_approvals"`
 	ApprovedBy   []types.String `tfsdk:"approved_by"`
+}
+type repoSettingsBranchModelJobs struct {
+	Name types.String `tfsdk:"name"`
+	Id   types.String `tfsdk:"id"`
 }
 
 // Project Resources.

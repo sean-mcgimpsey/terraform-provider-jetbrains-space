@@ -8,7 +8,6 @@ import (
 
 	space "terraform-provider-jetbrains-space/internal/api"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -42,7 +41,8 @@ func (r *repoResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Name of repo.",
 			},
 			"id": schema.StringAttribute{
 				Computed: true,
@@ -54,36 +54,71 @@ func (r *repoResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Computed: true,
 			},
 			"project_id": schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "ID of the parent project.",
 			},
 			"default_branch": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString("main"),
+				Optional:    true,
+				Computed:    true,
+				Description: "The default branch of the repo.",
+				Default:     stringdefault.StaticString("main"),
 			},
 			"description": schema.StringAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  stringdefault.StaticString(""),
+				Optional:    true,
+				Computed:    true,
+				Description: "Description of repo.",
+				Default:     stringdefault.StaticString(""),
 			},
 			"protected": schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  booldefault.StaticBool(false),
+				Optional:    true,
+				Computed:    true,
+				Description: "Should this repo be protected from deletion.",
+				Default:     booldefault.StaticBool(false),
 			},
-			"protected_branches": schema.ListAttribute{
-				ElementType: types.ObjectType{
-					AttrTypes: map[string]attr.Type{
-						"pattern": types.ListType{ElemType: types.StringType},
-						"quality_gate": types.ObjectType{
-							AttrTypes: map[string]attr.Type{
-								"approvals": types.ListType{ElemType: types.ObjectType{
-									AttrTypes: map[string]attr.Type{
-										"min_approvals": types.Int64Type,
-										"approved_by":   types.ListType{ElemType: types.StringType},
+			"protected_branches": schema.ListNestedAttribute{
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"pattern": schema.ListAttribute{
+							ElementType: types.StringType,
+							Description: "The branch pattern to match on.",
+							Optional:    true,
+						},
+						"quality_gate": schema.SingleNestedAttribute{
+							Attributes: map[string]schema.Attribute{
+								"approvals": schema.ListNestedAttribute{
+									NestedObject: schema.NestedAttributeObject{
+										Attributes: map[string]schema.Attribute{
+											"min_approvals": schema.Int64Attribute{
+												Optional:    true,
+												Description: "How many approvals are needed from the approving group.",
+											},
+											"approved_by": schema.ListAttribute{
+												ElementType: types.StringType,
+												Description: "Users who should review changes",
+												Required:    true,
+											},
+										},
 									},
-								}},
+									Required: true,
+								},
+								"automation_jobs": schema.ListNestedAttribute{
+									NestedObject: schema.NestedAttributeObject{
+										Attributes: map[string]schema.Attribute{
+											"name": schema.StringAttribute{
+												Optional:    true,
+												Description: "Name of the automation job.",
+											},
+											"id": schema.StringAttribute{
+												Computed:    true,
+												Optional:    true,
+												Description: "ID of the automation job.",
+											},
+										},
+									},
+									Optional: true,
+								},
 							},
+							Required: true,
 						},
 					},
 				},
@@ -176,7 +211,6 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		)
 		return
 	}
-
 	// Overwrite items with refreshed state.
 	state.ID = types.StringValue(repo.ID)
 	state.Name = types.StringValue(repo.Name)
@@ -198,17 +232,29 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 			})
 		}
 
+		automationJobs, err := r.ReadAutomationJobs(v, ctx, state.ProjectID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error reading automation jobs for repository; "+state.Name.ValueString()+" ",
+				err.Error(),
+			)
+			return
+		}
+
 		var patternsTF []types.String
 		for _, value := range v.Pattern {
 			patternsTF = append(patternsTF, types.StringValue(value))
 		}
 
-		protectedBranchesState = append(protectedBranchesState, repoSettingsBranchModel{
+		var result = repoSettingsBranchModel{
 			Pattern: patternsTF,
 			QualityGate: repoSettingsBranchModelQualityGate{
-				Approvals: branchApprovals,
+				Approvals:      branchApprovals,
+				AutomationJobs: automationJobs,
 			},
-		})
+		}
+
+		protectedBranchesState = append(protectedBranchesState, result)
 
 	}
 	state.ProtectedBranches = protectedBranchesState
@@ -219,25 +265,6 @@ func (r *repoResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-}
-
-// CompareValues - Compare the values of state and plan to determine if they differ.
-func CompareValues(ctx context.Context, path path.Path, state tfsdk.State, plan tfsdk.Plan) (bool, string, error) {
-	var stateVal types.String
-	var planVal types.String
-	diag := state.GetAttribute(ctx, path, &stateVal)
-	if diag.HasError() {
-		return false, "", fmt.Errorf("Problem getting state value")
-	}
-	diag = plan.GetAttribute(ctx, path, &planVal)
-	if diag.HasError() {
-		return false, "", fmt.Errorf("Problem getting plan value")
-	}
-	if !stateVal.Equal(planVal) {
-		return true, planVal.ValueString(), nil
-	}
-	return false, "", nil
-
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
@@ -287,15 +314,6 @@ func (r *repoResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			)
 			return
 		}
-	}
-
-	err = r.client.DeleteRepositoryProtectedBranches(projectID, name)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error Deleting Space repo;"+repo.ID,
-			err.Error(),
-		)
-		return
 	}
 
 	plan, err = r.UpdateRepositoryProtectedBranches(ctx, plan.ProjectID.ValueString(), plan.Name.ValueString(), plan)
@@ -412,15 +430,42 @@ func (r *repoResource) UpdateRepositoryProtectedBranches(ctx context.Context, Pr
 				MinApprovals: int(va.MinApprovals.ValueInt64()),
 			})
 		}
+		var automationJobs []string
+		for _, job := range plan.ProtectedBranches[k].QualityGate.AutomationJobs {
+			var JobID string
+			var err error
+
+			if job.Id.IsUnknown() {
+				JobID, err = r.client.GetJobIDFromName(plan.ProjectID.ValueString(), plan.Name.ValueString(), plan.DefaultBranch.ValueString(), job.Name.ValueString())
+				if err != nil {
+					return repoResourceModel{}, err
+				}
+			} else {
+				JobID = job.Id.String()
+			}
+			automationJobs = append(automationJobs, JobID)
+
+		}
+
+		var repoQualityGate space.ProtectedBranchesQualityGate
+		if automationJobs != nil {
+			repoQualityGate = space.ProtectedBranchesQualityGate{
+				Approvals:      planBranchesApprovals,
+				AutomationJobs: automationJobs,
+			}
+		} else {
+			repoQualityGate = space.ProtectedBranchesQualityGate{
+				Approvals: planBranchesApprovals,
+			}
+		}
+
 		planBranches = append(planBranches, space.ProtectedBranchesReq{
 			Pattern:        patterns,
 			AllowPush:      admins,
 			AllowCreate:    members,
 			AllowDelete:    admins,
 			AllowForcePush: admins,
-			QualityGate: space.ProtectedBranchesQualityGate{
-				Approvals: planBranchesApprovals,
-			},
+			QualityGate:    repoQualityGate,
 		})
 
 		data = space.ProtectedBranchesPost{
@@ -450,6 +495,12 @@ func (r *repoResource) UpdateRepositoryProtectedBranches(ctx context.Context, Pr
 				MinApprovals: types.Int64Value(int64(va.MinApprovals)),
 			})
 		}
+
+		automationJobs, err := r.ReadAutomationJobs(v, ctx, ProjectID)
+		if err != nil {
+			return repoResourceModel{}, err
+		}
+
 		var patternsTF []types.String
 		for _, value := range v.Pattern {
 			patternsTF = append(patternsTF, types.StringValue(value))
@@ -457,9 +508,48 @@ func (r *repoResource) UpdateRepositoryProtectedBranches(ctx context.Context, Pr
 		plan.ProtectedBranches[k] = repoSettingsBranchModel{
 			Pattern: patternsTF,
 			QualityGate: repoSettingsBranchModelQualityGate{
-				Approvals: branchApprovals,
+				Approvals:      branchApprovals,
+				AutomationJobs: automationJobs,
 			},
 		}
 	}
 	return plan, nil
+}
+
+// ReadAutomationJobs - Get JobName from return ID. Compensating for the SPACE API.
+func (r *repoResource) ReadAutomationJobs(data space.ProtectedBranchesReq, ctx context.Context, ProjectID string) ([]repoSettingsBranchModelJobs, error) {
+	var automationJobs []repoSettingsBranchModelJobs
+	for _, jobID := range data.QualityGate.AutomationJobs {
+
+		jobName, err := r.client.GetJobName(ProjectID, jobID)
+		if err != nil {
+			return []repoSettingsBranchModelJobs{}, fmt.Errorf("problem getting the job name for id " + jobID + ": " + err.Error())
+		}
+
+		automationJobs = append(automationJobs, repoSettingsBranchModelJobs{
+			Name: types.StringValue(jobName),
+			Id:   types.StringValue(jobID),
+		})
+
+	}
+	return automationJobs, nil
+}
+
+// CompareValues - Compare the values of state and plan to determine if they differ.
+func CompareValues(ctx context.Context, path path.Path, state tfsdk.State, plan tfsdk.Plan) (bool, string, error) {
+	var stateVal types.String
+	var planVal types.String
+	diag := state.GetAttribute(ctx, path, &stateVal)
+	if diag.HasError() {
+		return false, "", fmt.Errorf("problem getting state value")
+	}
+	diag = plan.GetAttribute(ctx, path, &planVal)
+	if diag.HasError() {
+		return false, "", fmt.Errorf("problem getting plan value")
+	}
+	if !stateVal.Equal(planVal) {
+		return true, planVal.ValueString(), nil
+	}
+	return false, "", nil
+
 }

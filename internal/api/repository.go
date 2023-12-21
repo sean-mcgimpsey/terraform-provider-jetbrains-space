@@ -34,7 +34,8 @@ type ProtectedBranchesPostSettings struct {
 }
 
 type ProtectedBranchesQualityGate struct {
-	Approvals []ProtectedBranchesResultApprovals `json:"approvals"`
+	Approvals      []ProtectedBranchesResultApprovals `json:"approvals"`
+	AutomationJobs []string                           `json:"automationJobs"`
 }
 
 type ProtectedBranchesResultApprovals struct {
@@ -198,7 +199,7 @@ func (c *Client) UpdateRepoProtectedBranches(data ProtectedBranchesPost, Project
 
 func (c *Client) GetRepoProtectedBranches(ProjectID string, Repository string) (ProtectedBranches, error) {
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s/id:%s/repositories/%s/settings?$fields=protectedBranches(allowCreate,allowDelete,allowForcePush,allowPush,pattern,qualityGate(approvals(approvedBy,minApprovals)))", c.HostURL, baseAPIEndpoint, ProjectID, Repository), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s/id:%s/repositories/%s/settings?$fields=protectedBranches(allowCreate,allowDelete,allowForcePush,allowPush,pattern,qualityGate(approvals(approvedBy,minApprovals),automationJobs))", c.HostURL, baseAPIEndpoint, ProjectID, Repository), nil)
 	if err != nil {
 		return ProtectedBranches{}, fmt.Errorf("Problem setting up new http request; " + err.Error())
 	}
@@ -214,5 +215,53 @@ func (c *Client) GetRepoProtectedBranches(ProjectID string, Repository string) (
 	}
 
 	return protected, nil
+
+}
+
+func (c *Client) GetJobName(ProjectID string, JobID string) (string, error) {
+	// /api/http/projects/automation/jobs/{jobId}
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s/automation/jobs/%s?project=id:%s", c.HostURL, baseAPIEndpoint, JobID, ProjectID), nil)
+	if err != nil {
+		return "", fmt.Errorf("Problem setting up new http request; " + err.Error())
+	}
+	body, err := c.doRequest(req)
+	if err != nil {
+		return "", fmt.Errorf("Problem getting repository branch settings via API! " + err.Error())
+	}
+
+	var automationJobs AutomationJobs
+	err = json.Unmarshal(body, &automationJobs)
+	if err != nil {
+		return "", err
+	}
+
+	return automationJobs.Name, nil
+
+}
+
+func (c *Client) GetJobIDFromName(ProjectID string, Repository string, Branch string, JobName string) (string, error) {
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s/id:%s/automation/jobs?repoFilter=%s&branchFilter=%s", c.HostURL, baseAPIEndpoint, ProjectID, Repository, Branch), nil)
+	if err != nil {
+		return "", fmt.Errorf("Problem setting up new http request; " + err.Error())
+	}
+	body, err := c.doRequest(req)
+	if err != nil {
+		return "", fmt.Errorf("Problem getting repository branch settings via API! " + req.URL.Path + " " + err.Error())
+	}
+
+	var automationJobs AllAutomationJobs
+	err = json.Unmarshal(body, &automationJobs)
+	if err != nil {
+		return "", err
+	}
+
+	for _, job := range automationJobs.Data {
+		if job.Name == JobName {
+			return job.Id, nil
+		}
+	}
+
+	return "", fmt.Errorf("Could not find Job ID matching name; " + JobName)
 
 }
