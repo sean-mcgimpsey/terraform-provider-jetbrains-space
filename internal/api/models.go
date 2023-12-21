@@ -97,3 +97,17 @@ type CreateRepositoryData struct {
 type Projects struct {
 	AllProjects []Project `json:"data"`
 }
+
+type AutomationJobs struct {
+	Id         string `json:"id"`
+	Name       string `json:"name"`
+	Repository string `json:"repoName"`
+}
+
+type AllAutomationJobs struct {
+	Data []struct {
+		Id         string `json:"id"`
+		Name       string `json:"name"`
+		Repository string `json:"repoName"`
+	} `json:"data"`
+}
